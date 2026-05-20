@@ -41,6 +41,11 @@ async function telegram(env, method, payload) {
   return data;
 }
 
+async function getBotInfo(env) {
+  const data = await telegram(env, "getMe", {});
+  return data.result || null;
+}
+
 async function isSubscribed(env, userId) {
   try {
     const data = await telegram(env, "getChatMember", {
@@ -133,7 +138,18 @@ async function handleCallback(env, callbackQuery) {
 export default {
   async fetch(request, env) {
     if (request.method === "GET") {
-      return json({ ok: true, service: "cypclick-bot" });
+      let bot = null;
+      try {
+        bot = await getBotInfo(env);
+      } catch (error) {
+        return json({
+          ok: false,
+          service: "cypclick-bot",
+          error: "BOT_TOKEN check failed",
+          details: error.message,
+        }, 500);
+      }
+      return json({ ok: true, service: "cypclick-bot", bot });
     }
 
     if (request.method !== "POST") {
@@ -158,6 +174,15 @@ export default {
       if (text.startsWith("/start")) {
         const refPayload = text.split(/\s+/)[1] || "";
         await handleStart(env, chatId, userId, refPayload);
+        return json({ ok: true });
+      }
+
+      if (text.startsWith("/debug")) {
+        const bot = await getBotInfo(env);
+        await telegram(env, "sendMessage", {
+          chat_id: chatId,
+          text: `Debug OK. Bot: @${bot.username}. User: ${userId}. Channel: ${REQUIRED_CHANNEL}`,
+        });
         return json({ ok: true });
       }
 
