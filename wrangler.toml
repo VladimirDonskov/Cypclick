@@ -1,0 +1,6 @@
+name = "cypclick-bot"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-05-20"
+
+[vars]
+WEBAPP_URL = "https://cipaclick.web.app"
