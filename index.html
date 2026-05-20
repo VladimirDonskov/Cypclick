@@ -1437,7 +1437,13 @@ async function fsSet(collection_name, docId, data) {
   try {
     await _db.collection(collection_name).doc(docId).set(data, { merge: true });
     return true;
-  } catch(e) { console.warn('fsSet err', e); return false; }
+  } catch(e) {
+    console.warn('fsSet err', collection_name, docId, e);
+    if (e && (e.code === 'permission-denied' || e.code === 'unauthenticated')) {
+      showToast('Firestore не дает сохранить данные. Проверь Auth и Rules.', 'error');
+    }
+    return false;
+  }
 }
 async function fsList(collection_name, orderField='created_at', dir='desc', lim=20) {
   try {
@@ -1447,7 +1453,7 @@ async function fsList(collection_name, orderField='created_at', dir='desc', lim=
 }
 async function fsDelete(collection_name, docId) {
   try { await _db.collection(collection_name).doc(docId).delete(); return true; }
-  catch(e) { return false; }
+  catch(e) { console.warn('fsDelete err', collection_name, docId, e); return false; }
 }
 async function fsQuery(collection_name, field, op, value) {
   try {
@@ -2340,8 +2346,9 @@ function showProfileMenu(){
 
 // ── Telegram Auto Login ─────────────────────────────────────────
 async function tgAutoLogin(tgUser) {
-  await ensureFirebaseSession();
-  const uid = 'tg_' + tgUser.id;
+  const authUser = await ensureFirebaseSession();
+  const legacyUid = 'tg_' + tgUser.id;
+  const uid = authUser?.uid || legacyUid;
   const username = tgUser.username || tgUser.first_name || 'Игрок' + tgUser.id;
   
   // Get referral from start_param
@@ -2354,6 +2361,19 @@ async function tgAutoLogin(tgUser) {
     fsGet('players', uid),
     new Promise(r => setTimeout(() => r(null), 5000))
   ]);
+
+  // Older builds used players/tg_<telegram_id>. If rules allow reading it,
+  // migrate that profile into the real Firebase Auth UID so strict rules work.
+  if (!u && uid !== legacyUid) {
+    const legacy = await Promise.race([
+      fsGet('players', legacyUid),
+      new Promise(r => setTimeout(() => r(null), 3000))
+    ]);
+    if (legacy) {
+      u = { ...legacy, uid, legacy_uid: legacyUid, tg_id: tgUser.id };
+      await fsSet('players', uid, u);
+    }
+  }
   
   const isNewPlayer = !u;
   
@@ -2365,7 +2385,7 @@ async function tgAutoLogin(tgUser) {
       seeds: starterBonus, seeds_total: starterBonus, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
       battles_won: 0, pvp_wins: 0, upgrades: {}, selected_chick_id: null,
-      tg_id: tgUser.id, referred_by: refUid||null,
+      tg_id: tgUser.id, legacy_uid: legacyUid, referred_by: refUid||null,
       referral_count: 0,
       created_at: new Date().toISOString()
     });
