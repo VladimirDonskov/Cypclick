@@ -15,6 +15,13 @@ function withRefParam(url, refPayload) {
   return `${url}${glue}ref=${encodeURIComponent(refPayload)}`;
 }
 
+function getWebAppUrls(env, refPayload = "") {
+  return {
+    primaryUrl: withRefParam(env.WEBAPP_URL || "https://cipaclick.firebaseapp.com", refPayload),
+    fallbackUrl: withRefParam(env.WEBAPP_FALLBACK_URL || "https://cipaclick.web.app", refPayload),
+  };
+}
+
 function subscriptionKeyboard(refPayload = "") {
   const callbackData = refPayload ? `check_sub:${refPayload}` : "check_sub";
   return {
@@ -90,10 +97,7 @@ async function sendSubscriptionGate(env, chatId, refPayload = "") {
 }
 
 async function sendGameMessage(env, chatId, refPayload = "") {
-  const webAppUrl = withRefParam(
-    env.WEBAPP_URL || "https://cipaclick.web.app",
-    refPayload
-  );
+  const { primaryUrl, fallbackUrl } = getWebAppUrls(env, refPayload);
 
   return telegram(env, "sendMessage", {
     chat_id: chatId,
@@ -103,7 +107,13 @@ async function sendGameMessage(env, chatId, refPayload = "") {
         [
           {
             text: "Играть",
-            web_app: { url: webAppUrl },
+            web_app: { url: primaryUrl },
+          },
+        ],
+        [
+          {
+            text: "VPN / backup link",
+            url: fallbackUrl,
           },
         ],
       ],
@@ -206,6 +216,7 @@ export default {
       if (text.startsWith("/debug")) {
         const bot = await getBotInfo(env);
         const sub = await checkSubscription(env, userId);
+        const urls = getWebAppUrls(env, "");
         await telegram(env, "sendMessage", {
           chat_id: chatId,
           text: [
@@ -214,6 +225,8 @@ export default {
             `Channel: ${REQUIRED_CHANNEL}`,
             `Subscription: ${sub.subscribed ? "yes" : "no"}`,
             `Status: ${sub.status}`,
+            `WebApp: ${urls.primaryUrl}`,
+            `Fallback: ${urls.fallbackUrl}`,
             sub.error ? `Error: ${sub.error}` : "",
           ].filter(Boolean).join("\n"),
         });
