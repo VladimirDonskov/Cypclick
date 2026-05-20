@@ -19,8 +19,9 @@
   --bg:#0d0618;--card:#1e1035;--card2:#261545;--text:#fff;
   --common:#9ca3af;--rare:#3b82f6;--epic:#a855f7;--legendary:#f59e0b;
   --bottom-h:70px;
+  --app-max:620px;
 }
-body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);height:100vh;max-width:430px;margin:0 auto;overflow:hidden;position:relative;display:flex;flex-direction:column}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);height:100vh;max-width:var(--app-max);margin:0 auto;overflow:hidden;position:relative;display:flex;flex-direction:column}
 
 /* BG effects */
 body::before{content:'';position:fixed;inset:0;background:
@@ -72,7 +73,7 @@ body::before{content:'';position:fixed;inset:0;background:
 /* BOTTOM NAV */
 .bottom-nav{
   position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:430px;
+  width:100%;max-width:var(--app-max);
   height:var(--bottom-h);
   background:rgba(13,6,24,0.95);
   backdrop-filter:blur(24px);
@@ -495,6 +496,15 @@ body::before{content:'';position:fixed;inset:0;background:
 .upg-card.click-upg .upg-icon{background:rgba(255,107,157,0.15)}
 .upg-card.passive-upg .upg-icon{background:rgba(245,158,11,0.12)}
 .upg-card.special-upg .upg-icon{background:rgba(168,85,247,0.15)}
+
+@media (min-width: 520px) and (max-width: 899px) {
+  :root { --app-max:620px; }
+  .page { padding-left:22px; padding-right:22px; }
+  .click-wrap { padding-top:20px; gap:18px; }
+  .chick-ring { width:210px; height:210px; }
+  .click-right { width:100%; max-width:460px; }
+  .bottom-nav { padding-left:14px; padding-right:14px; }
+}
 
 /* ═══════════════════════════════════════
    DESKTOP LAYOUT  (min-width: 900px)
