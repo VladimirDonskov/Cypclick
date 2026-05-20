@@ -46,23 +46,39 @@ async function getBotInfo(env) {
   return data.result || null;
 }
 
-async function isSubscribed(env, userId) {
+async function checkSubscription(env, userId) {
   try {
     const data = await telegram(env, "getChatMember", {
       chat_id: REQUIRED_CHANNEL,
       user_id: userId,
     });
     const member = data.result || {};
-    return (
+    const subscribed = (
       member.status === "creator" ||
       member.status === "administrator" ||
       member.status === "member" ||
       (member.status === "restricted" && member.is_member === true)
     );
+    return {
+      ok: true,
+      subscribed,
+      status: member.status || "unknown",
+      isMember: member.is_member,
+    };
   } catch (error) {
     console.error("Subscription check failed", error);
-    return false;
+    return {
+      ok: false,
+      subscribed: false,
+      status: "error",
+      error: error.message,
+    };
   }
+}
+
+async function isSubscribed(env, userId) {
+  const check = await checkSubscription(env, userId);
+  return check.subscribed;
 }
 
 async function sendSubscriptionGate(env, chatId, refPayload = "") {
@@ -119,12 +135,22 @@ async function handleCallback(env, callbackQuery) {
     return;
   }
 
-  if (await isSubscribed(env, userId)) {
+  const sub = await checkSubscription(env, userId);
+  if (sub.subscribed) {
     await telegram(env, "answerCallbackQuery", {
       callback_query_id: callbackId,
       text: "Подписка найдена. Открывай игру!",
     });
     await sendGameMessage(env, chatId, refPayload);
+    return;
+  }
+
+  if (!sub.ok) {
+    await telegram(env, "answerCallbackQuery", {
+      callback_query_id: callbackId,
+      text: "Бот не может проверить канал. Добавь его админом в @CipochkaDev.",
+      show_alert: true,
+    });
     return;
   }
 
@@ -179,9 +205,17 @@ export default {
 
       if (text.startsWith("/debug")) {
         const bot = await getBotInfo(env);
+        const sub = await checkSubscription(env, userId);
         await telegram(env, "sendMessage", {
           chat_id: chatId,
-          text: `Debug OK. Bot: @${bot.username}. User: ${userId}. Channel: ${REQUIRED_CHANNEL}`,
+          text: [
+            `Debug OK. Bot: @${bot.username}`,
+            `User: ${userId}`,
+            `Channel: ${REQUIRED_CHANNEL}`,
+            `Subscription: ${sub.subscribed ? "yes" : "no"}`,
+            `Status: ${sub.status}`,
+            sub.error ? `Error: ${sub.error}` : "",
+          ].filter(Boolean).join("\n"),
         });
         return json({ ok: true });
       }
