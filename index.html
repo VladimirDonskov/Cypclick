@@ -1009,6 +1009,7 @@ body.tg-mode {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;grid-column:1/-1">
           <div>
             <div style="font-family:'Paytone One';font-size:20px;color:var(--pink)" id="hub-username"></div>
+            <div id="save-debug" style="font-size:10px;color:rgba(255,255,255,0.28);margin-top:4px;word-break:break-all;max-width:260px"></div>
             <div style="font-size:11px;color:rgba(255,255,255,0.35)" id="hub-status">● Онлайн</div>
           </div>
           <button class="sbtn" onclick="doLogout()">Выйти</button>
@@ -1436,9 +1437,15 @@ async function fsGet(collection_name, docId) {
 async function fsSet(collection_name, docId, data) {
   try {
     await _db.collection(collection_name).doc(docId).set(data, { merge: true });
+    if(collection_name==='players'&&currentUser&&docId===currentUser.uid){
+      setSaveStatus('saved '+new Date().toLocaleTimeString());
+    }
     return true;
   } catch(e) {
     console.warn('fsSet err', collection_name, docId, e);
+    if(collection_name==='players'&&currentUser&&docId===currentUser.uid){
+      setSaveStatus('save error '+(e.code||e.message||'unknown'));
+    }
     if (e && (e.code === 'permission-denied' || e.code === 'unauthenticated')) {
       showToast('Firestore не дает сохранить данные. Проверь Auth и Rules.', 'error');
     }
@@ -1661,6 +1668,7 @@ function showApp(){
   mainApp.style.flexDirection = 'column';
   document.getElementById('hub-username').textContent=currentUser.username;
   document.getElementById('hdr-username').textContent=currentUser.username;
+  setSaveStatus(lastSaveStatus);
   document.getElementById('hub-status').textContent='● Онлайн';
   updateUI();updateMainChick();renderCollection();renderPvpPickGrid();renderPvpSlots();
   updatePerTapDisplay();
@@ -1697,16 +1705,45 @@ function updateUI(){
 }
 
 let saveTimer=null;
+let lastSaveStatus='waiting';
+
+function setSaveStatus(status){
+  lastSaveStatus=status;
+  const el=document.getElementById('save-debug');
+  if(el&&currentUser){
+    el.textContent='UID: '+currentUser.uid+' | save: '+lastSaveStatus;
+  }
+}
+
+function getPlayerPayload(){
+  return {
+    uid: currentUser.uid,
+    username: currentUser.username,
+    seeds: state.seeds, seeds_total: state.allTimeSeeds,
+    collected: state.collected, completed_levels: state.completedLevels,
+    eggs_bought_basic: state.eggsBasic, eggs_bought_golden: state.eggsGolden,
+    eggs_bought_legendary: state.eggsLegendary,
+    battles_won: (state.completedLevels||[]).length, pvp_wins: state.pvpWins||0,
+    upgrades: state.upgrades||{}, selected_chick_id: state.selectedChickId||null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+async function flushSaveToServer(){
+  if(!currentUser) return false;
+  if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+  setSaveStatus('saving...');
+  const ok=await fsSet('players', currentUser.uid, getPlayerPayload());
+  setSaveStatus(ok?'saved '+new Date().toLocaleTimeString():'save failed');
+  return ok;
+}
+
 // Immediate save for spending operations (no delay)
 async function saveSeedsNow(){
   if(!currentUser) return;
   try {
-    await _db.collection('players').doc(currentUser.uid).update({
-      seeds: state.seeds,
-      seeds_total: state.allTimeSeeds,
-      updated_at: new Date().toISOString()
-    });
-  } catch(e){ console.warn('saveSeedsNow err', e); }
+    await flushSaveToServer();
+  } catch(e){ console.warn('saveSeedsNow err', e); setSaveStatus('save error '+(e.code||e.message||'')); }
 }
 
 function saveToServer(){
@@ -1725,17 +1762,10 @@ function saveToServer(){
   }catch(e){}
 
   if(!currentUser) return;
+  setSaveStatus('queued');
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async()=>{
-    await fsSet('players', currentUser.uid, {
-      seeds: state.seeds, seeds_total: state.allTimeSeeds,
-      collected: state.collected, completed_levels: state.completedLevels,
-      eggs_bought_basic: state.eggsBasic, eggs_bought_golden: state.eggsGolden,
-      eggs_bought_legendary: state.eggsLegendary,
-      battles_won: (state.completedLevels||[]).length, pvp_wins: state.pvpWins||0,
-      upgrades: state.upgrades||{}, selected_chick_id: state.selectedChickId||null,
-      updated_at: new Date().toISOString()
-    });
+    await flushSaveToServer();
   }, 500);
 }
 
