@@ -1455,6 +1455,16 @@ async function fsQuery(collection_name, field, op, value) {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) { console.warn('fsQuery err', e); return []; }
 }
+async function ensureFirebaseSession() {
+  if (_auth.currentUser) return _auth.currentUser;
+  try {
+    const cred = await _auth.signInAnonymously();
+    return cred.user;
+  } catch(e) {
+    console.warn('anonymous auth err', e);
+    return null;
+  }
+}
 
 // ── Auth state ──────────────────────────────────────────────────────
 let currentUser=null; // {id, username, player_id}
@@ -2330,6 +2340,7 @@ function showProfileMenu(){
 
 // ── Telegram Auto Login ─────────────────────────────────────────
 async function tgAutoLogin(tgUser) {
+  await ensureFirebaseSession();
   const uid = 'tg_' + tgUser.id;
   const username = tgUser.username || tgUser.first_name || 'Игрок' + tgUser.id;
   
