@@ -1,6 +1,7 @@
 const TELEGRAM_API = "https://api.telegram.org";
 const REQUIRED_CHANNEL = "@CipochkaDev";
 const REQUIRED_CHANNEL_URL = "https://t.me/CipochkaDev";
+const APP_VERSION = "jpg-v19";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -15,10 +16,23 @@ function withRefParam(url, refPayload) {
   return `${url}${glue}ref=${encodeURIComponent(refPayload)}`;
 }
 
+function withAppVersion(url) {
+  try {
+    const nextUrl = new URL(url);
+    nextUrl.searchParams.set("v", APP_VERSION);
+    return nextUrl.toString();
+  } catch {
+    const glue = url.includes("?") ? "&" : "?";
+    return `${url}${glue}v=${APP_VERSION}`;
+  }
+}
+
 function getWebAppUrls(env, refPayload = "") {
+  const primary = withAppVersion(env.WEBAPP_URL || "https://cipaclick.web.app");
+  const fallback = withAppVersion(env.WEBAPP_FALLBACK_URL || "https://cipaclick.web.app");
   return {
-    primaryUrl: withRefParam(env.WEBAPP_URL || "https://cipaclick.firebaseapp.com", refPayload),
-    fallbackUrl: withRefParam(env.WEBAPP_FALLBACK_URL || "https://cipaclick.web.app", refPayload),
+    primaryUrl: withRefParam(primary, refPayload),
+    fallbackUrl: withRefParam(fallback, refPayload),
   };
 }
 

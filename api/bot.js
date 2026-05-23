@@ -1,4 +1,5 @@
 const TELEGRAM_API = "https://api.telegram.org";
+const APP_VERSION = "jpg-v19";
 
 function json(res, status, data) {
   res.statusCode = status;
@@ -24,6 +25,17 @@ function withRefParam(url, refPayload) {
   return `${url}${glue}ref=${encodeURIComponent(refPayload)}`;
 }
 
+function withAppVersion(url) {
+  try {
+    const nextUrl = new URL(url);
+    nextUrl.searchParams.set("v", APP_VERSION);
+    return nextUrl.toString();
+  } catch {
+    const glue = url.includes("?") ? "&" : "?";
+    return `${url}${glue}v=${APP_VERSION}`;
+  }
+}
+
 async function telegram(method, payload) {
   const token = process.env.BOT_TOKEN;
   if (!token) throw new Error("BOT_TOKEN is not configured");
@@ -43,7 +55,7 @@ async function telegram(method, payload) {
 
 async function sendStartMessage(chatId, refPayload) {
   const webAppUrl = withRefParam(
-    process.env.WEBAPP_URL || "https://cipaclick.web.app",
+    withAppVersion(process.env.WEBAPP_URL || "https://cipaclick.web.app"),
     refPayload
   );
 
