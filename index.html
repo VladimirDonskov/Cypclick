@@ -278,6 +278,19 @@ body::before{content:'';position:fixed;inset:0;background:
 .daily-btn{width:100%;padding:14px;border:none;border-radius:16px;background:linear-gradient(135deg,#ffd93d,#ff6b9d);font-family:'Paytone One',sans-serif;font-size:17px;color:#fff;cursor:pointer;margin-top:10px;box-shadow:0 4px 20px rgba(255,107,157,0.4);transition:transform 0.15s}
 .daily-btn:active{transform:scale(0.96)}
 
+/* DAILY REWARD CARD (main screen) */
+.daily-card{background:var(--card);border-radius:16px;padding:12px 14px;border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.3s,box-shadow 0.3s;margin-top:0}
+.daily-card.available{border-color:rgba(255,217,61,0.55);box-shadow:0 0 20px rgba(255,217,61,0.18);animation:dailyCardPulse 2s ease-in-out infinite}
+@keyframes dailyCardPulse{0%,100%{box-shadow:0 0 12px rgba(255,217,61,0.12)}50%{box-shadow:0 0 28px rgba(255,217,61,0.35)}}
+.daily-card-icon{font-size:26px;flex-shrink:0;line-height:1}
+.daily-card-info{flex:1;min-width:0}
+.daily-card-label{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px}
+.daily-card-value{font-family:'Paytone One';font-size:15px;color:var(--yellow);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.daily-card-value.muted{color:rgba(255,255,255,0.35);font-family:inherit;font-size:13px}
+.daily-card-clbtn{background:linear-gradient(135deg,#ffd93d,#ff6b9d);border:none;border-radius:10px;padding:8px 14px;font-family:'Paytone One';font-size:13px;color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 12px rgba(255,107,157,0.35);transition:transform 0.1s,opacity 0.2s}
+.daily-card-clbtn:active{transform:scale(0.93)}
+.daily-card-clbtn:disabled{opacity:0.35;cursor:not-allowed;background:rgba(255,255,255,0.1);box-shadow:none}
+
 /* AMBIENT PARTICLES */
 .bg-particle{position:fixed;pointer-events:none;z-index:0;border-radius:50%;animation:bgFloat linear infinite;opacity:0.15}
 @keyframes bgFloat{0%{transform:translateY(100vh) rotate(0)}100%{transform:translateY(-20px) rotate(360deg)}}
@@ -980,6 +993,15 @@ body.tg-mode {
             <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px">⚡ Пассивный доход</div>
             <div style="font-family:'Paytone One';font-size:18px;color:var(--yellow)" id="desktop-income">0 🌾/2сек</div>
           </div>
+          <!-- Daily reward card -->
+          <div class="daily-card" id="daily-card" onclick="handleDailyCardClick()">
+            <div class="daily-card-icon">🎁</div>
+            <div class="daily-card-info">
+              <div class="daily-card-label">Ежедневная награда</div>
+              <div class="daily-card-value" id="daily-card-value">Загрузка...</div>
+            </div>
+            <button class="daily-card-clbtn" id="daily-card-clbtn" onclick="event.stopPropagation();handleDailyCardClick()">Забрать!</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1216,7 +1238,7 @@ body.tg-mode {
     <div class="daily-sub" id="daily-streak-text">День 1 из 7</div>
     <div class="daily-reward-amount" id="daily-reward-amt">+500 🌾</div>
     <div class="daily-streak" id="daily-streak-dots"></div>
-    <button class="daily-btn" onclick="closeDailyReward()">Забрать!</button>
+    <button class="daily-btn" id="daily-modal-btn" onclick="claimDailyReward()">Забрать!</button>
   </div>
 </div>
 
@@ -1897,7 +1919,7 @@ async function loadUserAndStart(uid, opts = {}){
         state.eggsLegendary = ls.eggsLegendary||0; state.pvpWins = ls.pvpWins||0;
         state.upgrades = ls.upgrades||{}; state.selectedChickId = ls.selectedChickId||null;
         state.lastDailyDate = ls.lastDailyDate||''; state.dailyStreak = ls.dailyStreak||0;
-        showApp(); startPassiveIncome(); updatePerTapDisplay();
+        showApp(); startPassiveIncome(); updatePerTapDisplay(); updateDailyCard();
         showToast('⚠️ Оффлайн режим', 'info');
         return;
       }
@@ -3237,7 +3259,6 @@ getClickPower = function() {
 
 // ── DAILY REWARD SYSTEM ──────────────────────────────────────────
 const DAILY_REWARDS = [500, 1200, 2500, 5000, 10000, 20000, 50000];
-const DAILY_AUTO_REWARD_ENABLED = false;
 
 function getDailyKey(offsetDays = 0) {
   const d = new Date();
@@ -3280,63 +3301,114 @@ function tgCloudSet(key, value) {
   });
 }
 
-async function checkDailyReward() {
-  if (!DAILY_AUTO_REWARD_ENABLED) return;
-  if (!state || typeof state !== 'object') return;
-  const today = getDailyKey();
-  const last = state.lastDailyDate || '';
-  const streak = state.dailyStreak || 0;
-  const claimKey = getDailyClaimStorageKey(today);
+// ── countdown timer handle ──
+let _dailyCdTimer = null;
 
-  if (last === today) return; // Already claimed today
-  if (localStorage.getItem(claimKey) === '1') {
-    state.lastDailyDate = today;
-    if (!state.dailyStreak) state.dailyStreak = Math.max(streak, 1);
-    saveToServer();
-    return;
-  }
-  const cloudClaim = await tgCloudGet(claimKey);
-  if (cloudClaim === '1') {
-    localStorage.setItem(claimKey, '1');
-    state.lastDailyDate = today;
-    if (!state.dailyStreak) state.dailyStreak = Math.max(streak, 1);
-    saveToServer();
-    return;
-  }
+function getTimeUntilMidnight() {
+  const now = new Date();
+  const mid = new Date(now); mid.setHours(24,0,0,0);
+  const diff = mid - now;
+  const h = Math.floor(diff/3600000);
+  const m = Math.floor((diff%3600000)/60000);
+  const s = Math.floor((diff%60000)/1000);
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
 
+function _calcDailyPending() {
+  const last = state.lastDailyDate||'';
+  const streak = state.dailyStreak||0;
   const yesterday = getDailyKey(-1);
-  const newStreak = (last === yesterday) ? Math.min(streak + 1, 7) : 1;
-  const rewardIdx = newStreak - 1;
-  const reward = DAILY_REWARDS[rewardIdx] || DAILY_REWARDS[6];
+  const newStreak = (last===yesterday) ? Math.min(streak+1,7) : 1;
+  return { newStreak, reward: DAILY_REWARDS[newStreak-1]||DAILY_REWARDS[6] };
+}
 
-  state.lastDailyDate = today;
-  state.dailyStreak = newStreak;
-  state.seeds = (state.seeds || 0) + reward;
-  state.allTimeSeeds = (state.allTimeSeeds || 0) + reward;
-  localStorage.setItem(claimKey, '1');
-  await tgCloudSet(claimKey, '1');
+function updateDailyCard() {
+  const card=document.getElementById('daily-card');
+  const val=document.getElementById('daily-card-value');
+  const btn=document.getElementById('daily-card-clbtn');
+  if(!card||!val||!btn) return;
+  const today=getDailyKey();
+  const claimed=(state.lastDailyDate===today);
+  if(claimed){
+    card.classList.remove('available');
+    btn.disabled=true; btn.textContent='✓';
+    val.className='daily-card-value muted';
+    if(_dailyCdTimer) clearInterval(_dailyCdTimer);
+    const tick=()=>{ val.textContent='Следующая через: '+getTimeUntilMidnight(); if(getDailyKey()!==today){clearInterval(_dailyCdTimer);updateDailyCard();} };
+    tick(); _dailyCdTimer=setInterval(tick,1000);
+  } else {
+    card.classList.add('available');
+    if(_dailyCdTimer){clearInterval(_dailyCdTimer);_dailyCdTimer=null;}
+    btn.disabled=false; btn.textContent='Забрать!';
+    val.className='daily-card-value';
+    const {newStreak,reward}=_calcDailyPending();
+    val.textContent='+'+reward.toLocaleString()+' 🌾  · День '+newStreak+'/7';
+  }
+}
 
-  showDailyRewardModal(newStreak, reward);
-  saveToServer();
-  await flushSaveToServer();
+// Opens the preview modal WITHOUT giving reward yet
+function handleDailyCardClick() {
+  const today=getDailyKey();
+  if(state.lastDailyDate===today) return; // already claimed
+  const {newStreak,reward}=_calcDailyPending();
+  showDailyRewardModal(newStreak,reward);
+}
+
+// Actually gives reward — called by the "Забрать!" button inside the modal
+async function claimDailyReward() {
+  const today=getDailyKey();
+  if(state.lastDailyDate===today){ closeDailyReward(); return; }
+  const {newStreak,reward}=_calcDailyPending();
+  state.lastDailyDate=today;
+  state.dailyStreak=newStreak;
+  state.seeds=(state.seeds||0)+reward;
+  state.allTimeSeeds=(state.allTimeSeeds||0)+reward;
+  const claimKey=getDailyClaimStorageKey(today);
+  localStorage.setItem(claimKey,'1');
+  tgCloudSet(claimKey,'1');
+  closeDailyReward();
+  saveSeedsNow();
   updateUI();
+  updateDailyCard();
+  showToast('🎁 +'+reward.toLocaleString()+' семечек получено!','success');
+}
+
+// On app load: check if daily reward already claimed (via LS/cloud),
+// update card, and auto-open modal if reward is available
+async function checkDailyReward() {
+  if(!state||typeof state!=='object') return;
+  const today=getDailyKey();
+  const claimKey=getDailyClaimStorageKey(today);
+  // Sync claim state from localStorage / Telegram cloud
+  if(state.lastDailyDate!==today){
+    if(localStorage.getItem(claimKey)==='1'){
+      state.lastDailyDate=today; saveToServer();
+    } else {
+      const cloud=await tgCloudGet(claimKey);
+      if(cloud==='1'){ localStorage.setItem(claimKey,'1'); state.lastDailyDate=today; saveToServer(); }
+    }
+  }
+  updateDailyCard();
+  // Auto-open modal if reward is available (user must click "Забрать!" to actually claim)
+  if(state.lastDailyDate!==today){
+    const {newStreak,reward}=_calcDailyPending();
+    showDailyRewardModal(newStreak,reward);
+  }
 }
 
 function showDailyRewardModal(streak, reward) {
-  const ov = document.getElementById('daily-ov');
-  if (!ov) return;
-
-  document.getElementById('daily-streak-text').textContent = 'День ' + streak + ' из 7 🔥';
-  document.getElementById('daily-reward-amt').textContent = '+' + reward.toLocaleString() + ' 🌾';
-
-  const dotsEl = document.getElementById('daily-streak-dots');
-  if (dotsEl) {
-    dotsEl.innerHTML = '';
-    const icons = ['🌾','⚡','💥','🌟','👑','💎','🏆'];
-    for (let i = 1; i <= 7; i++) {
-      const d = document.createElement('div');
-      d.className = 'streak-day' + (i < streak ? ' done' : i === streak ? ' today' : '');
-      d.textContent = icons[i - 1];
+  const ov=document.getElementById('daily-ov');
+  if(!ov) return;
+  document.getElementById('daily-streak-text').textContent='День '+streak+' из 7 🔥';
+  document.getElementById('daily-reward-amt').textContent='+'+reward.toLocaleString()+' 🌾';
+  const dotsEl=document.getElementById('daily-streak-dots');
+  if(dotsEl){
+    dotsEl.innerHTML='';
+    const icons=['🌾','⚡','💥','🌟','👑','💎','🏆'];
+    for(let i=1;i<=7;i++){
+      const d=document.createElement('div');
+      d.className='streak-day'+(i<streak?' done':i===streak?' today':'');
+      d.textContent=icons[i-1];
       dotsEl.appendChild(d);
     }
   }
@@ -3344,8 +3416,8 @@ function showDailyRewardModal(streak, reward) {
 }
 
 function closeDailyReward() {
-  const ov = document.getElementById('daily-ov');
-  if (ov) ov.classList.remove('open');
+  const ov=document.getElementById('daily-ov');
+  if(ov) ov.classList.remove('open');
 }
 
 // ── AMBIENT BACKGROUND PARTICLES ────────────────────────────────
