@@ -3194,6 +3194,7 @@ getClickPower = function() {
 
 // ── DAILY REWARD SYSTEM ──────────────────────────────────────────
 const DAILY_REWARDS = [500, 1200, 2500, 5000, 10000, 20000, 50000];
+const DAILY_AUTO_REWARD_ENABLED = false;
 
 function getDailyKey(offsetDays = 0) {
   const d = new Date();
@@ -3237,6 +3238,7 @@ function tgCloudSet(key, value) {
 }
 
 async function checkDailyReward() {
+  if (!DAILY_AUTO_REWARD_ENABLED) return;
   if (!state || typeof state !== 'object') return;
   const today = getDailyKey();
   const last = state.lastDailyDate || '';
