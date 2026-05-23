@@ -3,5 +3,5 @@ main = "cloudflare-worker.js"
 compatibility_date = "2026-05-20"
 
 [vars]
-WEBAPP_URL = "https://cipaclick.web.app"
-WEBAPP_FALLBACK_URL = "https://cipaclick.web.app"
+WEBAPP_URL = "https://cipaclick.firebaseapp.com?v=reward-off-v14"
+WEBAPP_FALLBACK_URL = "https://cipaclick.web.app?v=reward-off-v14"

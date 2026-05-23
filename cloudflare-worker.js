@@ -17,8 +17,8 @@ function withRefParam(url, refPayload) {
 
 function getWebAppUrls(env, refPayload = "") {
   return {
-    primaryUrl: withRefParam(env.WEBAPP_URL || "https://cipaclick.web.app", refPayload),
-    fallbackUrl: withRefParam(env.WEBAPP_FALLBACK_URL || "https://cipaclick.web.app", refPayload),
+    primaryUrl: withRefParam(env.WEBAPP_URL || "https://cipaclick.firebaseapp.com?v=reward-off-v14", refPayload),
+    fallbackUrl: withRefParam(env.WEBAPP_FALLBACK_URL || "https://cipaclick.web.app?v=reward-off-v14", refPayload),
   };
 }
 
