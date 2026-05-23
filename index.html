@@ -1632,14 +1632,14 @@ const CHICKS=[
   {id:87,name:"Цыпа-чувак",rarity:"epic",desc:"Вы бы не могли бы подписать мою петицию.",imgKey:"img88"},
   {id:88,name:"Цыпа Лиза",rarity:"legendary",desc:"Розовая Мона Лиза. Загадочная улыбка скрывает тайну яиц.",imgKey:"img89"},
   {id:90,name:"Цутчер",rarity:"epic",desc:"Он ненавилит суперов.",imgKey:"img91"},
-  {id:91,name:"Цыпа-Директор",rarity:"legendary",desc:"Костюм, галстук, наушники. Проводит совещания и никогда не улыбается.",imgKey:"img92"},
+  {id:91,name:"Сигмо-цыпа",rarity:"legendary",desc:"Он сигма крутой, он сигма сигма сигма сигма.",imgKey:"img92"},
   {id:92,name:"Цыпо-Лего",rarity:"rare",desc:"Пластиковый, розовый, идеальный. Из него можно собрать целый курятник.",imgKey:"img93"},
-  {id:93,name:"Цыпа-Планета",rarity:"legendary",desc:"Он такой большой, что стал планетой. Вокруг него вращаются другие цыплята.",imgKey:"img94"},
-  {id:94,name:"Цыпа-Демон",rarity:"epic",desc:"Розовый демон с крыльями летучей мыши. Пришёл из ада, но всё равно милый.",imgKey:"img95"},
-  {id:95,name:"Цыпо-Скибиди",rarity:"rare",desc:"Сидит в унитазе и доволен. Абсолютный скибиди-рилс-режим активирован.",imgKey:"img96"},
-  {id:96,name:"Цыпо-Хаос",rarity:"legendary",desc:"Бензопила, щупальца, телевизор вместо груди. PEEP IS NOT CRIME.",imgKey:"img97"},
-  {id:97,name:"Цыпа-Русалка",rarity:"epic",desc:"Розовая русалка под водой. Плавает, поёт и защищает морских цыплят.",imgKey:"img98"},
-  {id:98,name:"Цыпа-Зевс",rarity:"ultra_legendary",desc:"Бог богов. Золотая корона, молния в лапе. Даже Олимп боится его кудахтанья.",imgKey:"img99"},
+  {id:93,name:"Цыпланета",rarity:"legendary",desc:"Он такой большой, что стал планетой. Вокруг него вращаются другие цыплята.",imgKey:"img94"},
+  {id:94,name:"Мутировавшая цыпа",rarity:"epic",desc:"Радиация творит странные вещи.",imgKey:"img95"},
+  {id:95,name:"Скибиди-цыпа",rarity:"rare",desc:"Новый скибиди-туалет.",imgKey:"img96"},
+  {id:96,name:"Цыполето-дивертименто",rarity:"legendary",desc:"Cipolette-Divertente, ma questo nuovo Brainrot è davvero spassoso?.",imgKey:"img97"},
+  {id:97,name:"Подводая цыпа",rarity:"epic",desc:"Плавает, поёт и защищает морских цыплят.",imgKey:"img98"},
+  {id:98,name:"Цыпа-Зевс",rarity:"ultra_legendary",desc:"Какой же он величественный.",imgKey:"img99"},
   {id:99,name:"Цыпа-Мику",rarity:"legendary",desc:"Виртуальная поп-звезда с голубыми косичками. Кукарекает в тональности ре-минор.",imgKey:"img100"},
   {id:100,name:"Цыпо-Яблоко",rarity:"common",desc:"Тело как яблоко, лапки как у цыплёнка. Стив Джобс одобряет.",imgKey:"img101"},
 ];
@@ -1800,6 +1800,7 @@ async function doRegister(){
       seeds: 0, seeds_total: 0, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
       battles_won: 0, pvp_wins: 0, upgrades: {}, selected_chick_id: null,
+      last_daily_date: '', daily_streak: 0,
       created_at: new Date().toISOString()
     });
     await loadUserAndStart(uid);
@@ -1839,7 +1840,7 @@ async function doLogout(){
   try { await _auth.signOut(); } catch(e){}
   localStorage.removeItem('cypclick_fb_uid');
   currentUser=null;
-  state={seeds:0,allTimeSeeds:0,collected:[],completedLevels:[],eggsBasic:0,eggsGolden:0,eggsLegendary:0,pvpWins:0,upgrades:{},selectedChickId:null};
+  state={seeds:0,allTimeSeeds:0,collected:[],completedLevels:[],eggsBasic:0,eggsGolden:0,eggsLegendary:0,pvpWins:0,upgrades:{},selectedChickId:null,lastDailyDate:'',dailyStreak:0};
   document.getElementById('main-app').style.display='none';
   document.getElementById('auth-page').style.display='block';
   showToast('👋 До встречи!','info');
@@ -1865,6 +1866,7 @@ async function loadUserAndStart(uid, opts = {}){
         state.eggsBasic = ls.eggsBasic||0; state.eggsGolden = ls.eggsGolden||0;
         state.eggsLegendary = ls.eggsLegendary||0; state.pvpWins = ls.pvpWins||0;
         state.upgrades = ls.upgrades||{}; state.selectedChickId = ls.selectedChickId||null;
+        state.lastDailyDate = ls.lastDailyDate||''; state.dailyStreak = ls.dailyStreak||0;
         showApp(); startPassiveIncome(); updatePerTapDisplay();
         showToast('⚠️ Оффлайн режим', 'info');
         return;
@@ -1888,6 +1890,8 @@ async function loadUserAndStart(uid, opts = {}){
   state.pvpWins = u.pvp_wins||0;
   state.upgrades = u.upgrades||{};
   state.selectedChickId = u.selected_chick_id||null;
+  state.lastDailyDate = u.last_daily_date||'';
+  state.dailyStreak = u.daily_streak||0;
 
   // Merge localStorage backup
   // IMPORTANT: Firestore is source of truth for seeds/spent resources
@@ -1911,6 +1915,8 @@ async function loadUserAndStart(uid, opts = {}){
       if(ls.completedLevels&&ls.completedLevels.length>state.completedLevels.length) state.completedLevels=ls.completedLevels;
       // Upgrades merge from general state key too
       if(ls.upgrades) Object.keys(ls.upgrades).forEach(k=>{ state.upgrades[k]=Math.max(ls.upgrades[k]||0,state.upgrades[k]||0); });
+      if(!state.lastDailyDate&&ls.lastDailyDate) state.lastDailyDate=ls.lastDailyDate;
+      if(!state.dailyStreak&&ls.dailyStreak) state.dailyStreak=ls.dailyStreak;
       // Seeds: ONLY use LS if Firestore returned 0 (first load or missing data)
       // Never override Firestore seeds with LS seeds to prevent rollback after spending
       if(state.seeds===0 && (ls.seeds||0)>0) state.seeds=ls.seeds;
@@ -1966,7 +1972,7 @@ function showApp(){
 }
 
 // ── Local state ─────────────────────────────────────────────────────
-let state={seeds:0,allTimeSeeds:0,collected:[],completedLevels:[],eggsBasic:0,eggsGolden:0,eggsLegendary:0,pvpWins:0};
+let state={seeds:0,allTimeSeeds:0,collected:[],completedLevels:[],eggsBasic:0,eggsGolden:0,eggsLegendary:0,pvpWins:0,lastDailyDate:'',dailyStreak:0};
 
 function getEggCost(type){
   const base=EGG_BASE[type];
@@ -2016,6 +2022,7 @@ function getPlayerPayload(){
     eggs_bought_legendary: state.eggsLegendary,
     battles_won: (state.completedLevels||[]).length, pvp_wins: state.pvpWins||0,
     upgrades: state.upgrades||{}, selected_chick_id: state.selectedChickId||null,
+    last_daily_date: state.lastDailyDate||'', daily_streak: state.dailyStreak||0,
     updated_at: new Date().toISOString()
   };
 }
@@ -2045,7 +2052,8 @@ function saveToServer(){
       seeds:state.seeds, allTimeSeeds:state.allTimeSeeds,
       collected:state.collected, completedLevels:state.completedLevels,
       eggsBasic:state.eggsBasic, eggsGolden:state.eggsGolden, eggsLegendary:state.eggsLegendary,
-      pvpWins:state.pvpWins||0, upgrades:state.upgrades||{}, selectedChickId:state.selectedChickId||null
+      pvpWins:state.pvpWins||0, upgrades:state.upgrades||{}, selectedChickId:state.selectedChickId||null,
+      lastDailyDate:state.lastDailyDate||'', dailyStreak:state.dailyStreak||0
     }));
     if(state.upgrades&&Object.keys(state.upgrades).length>0){
       localStorage.setItem('cypclick_upg_'+_pid, JSON.stringify(state.upgrades));
@@ -2706,6 +2714,7 @@ async function tgAutoLogin(tgUser) {
       seeds: starterBonus, seeds_total: starterBonus, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
       battles_won: 0, pvp_wins: 0, upgrades: {}, selected_chick_id: null,
+      last_daily_date: '', daily_streak: 0,
       tg_id: tgUser.id, legacy_uid: legacyUid, referred_by: refUid||null,
       referral_count: 0,
       created_at: new Date().toISOString()
@@ -2741,6 +2750,7 @@ async function tgAutoLogin(tgUser) {
     state.eggsBasic = u.eggs_bought_basic||0; state.eggsGolden = u.eggs_bought_golden||0;
     state.eggsLegendary = u.eggs_bought_legendary||0; state.pvpWins = u.pvp_wins||0;
     state.upgrades = u.upgrades||{}; state.selectedChickId = u.selected_chick_id||null;
+    state.lastDailyDate = u.last_daily_date||''; state.dailyStreak = u.daily_streak||0;
   } else {
     state.seeds = refUid && refUid !== uid ? 5000 : 0;
     state.allTimeSeeds = state.seeds;
@@ -2752,6 +2762,8 @@ async function tgAutoLogin(tgUser) {
     state.pvpWins = 0;
     state.upgrades = {};
     state.selectedChickId = null;
+    state.lastDailyDate = '';
+    state.dailyStreak = 0;
   }
   
   // Merge localStorage
@@ -3174,15 +3186,25 @@ getClickPower = function() {
 // ── DAILY REWARD SYSTEM ──────────────────────────────────────────
 const DAILY_REWARDS = [500, 1200, 2500, 5000, 10000, 20000, 50000];
 
+function getDailyKey(offsetDays = 0) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function checkDailyReward() {
   if (!state || typeof state !== 'object') return;
-  const today = new Date().toDateString();
+  const today = getDailyKey();
   const last = state.lastDailyDate || '';
   const streak = state.dailyStreak || 0;
 
   if (last === today) return; // Already claimed today
 
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const yesterday = getDailyKey(-1);
   const newStreak = (last === yesterday) ? Math.min(streak + 1, 7) : 1;
   const rewardIdx = newStreak - 1;
   const reward = DAILY_REWARDS[rewardIdx] || DAILY_REWARDS[6];
