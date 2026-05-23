@@ -1772,6 +1772,7 @@ async function ensureFirebaseSession() {
 
 // ── Auth state ──────────────────────────────────────────────────────
 let currentUser=null; // {id, username, player_id}
+let currentTelegramUser=null;
 
 async function doRegister(){
   const un=document.getElementById('reg-username').value.trim();
@@ -2676,6 +2677,7 @@ function showProfileMenu(){
 
 // ── Telegram Auto Login ─────────────────────────────────────────
 async function tgAutoLogin(tgUser) {
+  currentTelegramUser = tgUser;
   const authUser = await ensureFirebaseSession();
   const legacyUid = 'tg_' + tgUser.id;
   const uid = authUser?.uid || legacyUid;
@@ -3204,8 +3206,34 @@ function getDailyKey(offsetDays = 0) {
 }
 
 function getDailyClaimStorageKey(dayKey) {
-  const uid = currentUser?.uid || localStorage.getItem('cypclick_fb_uid') || 'guest';
-  return 'cypclick_daily_claim_' + uid + '_' + dayKey;
+  const stableId = currentTelegramUser?.id
+    ? 'tg_' + currentTelegramUser.id
+    : (currentUser?.uid || localStorage.getItem('cypclick_fb_uid') || 'guest');
+  return 'cypclick_daily_claim_' + stableId + '_' + dayKey;
+}
+
+function tgCloudGet(key) {
+  return new Promise(resolve => {
+    const storage = tgApp?.CloudStorage;
+    if (!storage?.getItem) return resolve('');
+    try {
+      storage.getItem(key, (err, value) => resolve(err ? '' : (value || '')));
+    } catch(e) {
+      resolve('');
+    }
+  });
+}
+
+function tgCloudSet(key, value) {
+  return new Promise(resolve => {
+    const storage = tgApp?.CloudStorage;
+    if (!storage?.setItem) return resolve(false);
+    try {
+      storage.setItem(key, value, err => resolve(!err));
+    } catch(e) {
+      resolve(false);
+    }
+  });
 }
 
 async function checkDailyReward() {
@@ -3222,6 +3250,14 @@ async function checkDailyReward() {
     saveToServer();
     return;
   }
+  const cloudClaim = await tgCloudGet(claimKey);
+  if (cloudClaim === '1') {
+    localStorage.setItem(claimKey, '1');
+    state.lastDailyDate = today;
+    if (!state.dailyStreak) state.dailyStreak = Math.max(streak, 1);
+    saveToServer();
+    return;
+  }
 
   const yesterday = getDailyKey(-1);
   const newStreak = (last === yesterday) ? Math.min(streak + 1, 7) : 1;
@@ -3233,6 +3269,7 @@ async function checkDailyReward() {
   state.seeds = (state.seeds || 0) + reward;
   state.allTimeSeeds = (state.allTimeSeeds || 0) + reward;
   localStorage.setItem(claimKey, '1');
+  await tgCloudSet(claimKey, '1');
 
   showDailyRewardModal(newStreak, reward);
   saveToServer();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cypclick-v11'; // bumped version - clears old cache for all users
+const CACHE_NAME = 'cypclick-v13'; // bumped version - clears old cache for all users
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
