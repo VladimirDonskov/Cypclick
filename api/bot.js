@@ -43,7 +43,7 @@ async function telegram(method, payload) {
 
 async function sendStartMessage(chatId, refPayload) {
   const webAppUrl = withRefParam(
-    process.env.WEBAPP_URL || "https://cipaclick.web.app?v=reward-off-v14",
+    process.env.WEBAPP_URL || "https://cipaclick.web.app",
     refPayload
   );
 
