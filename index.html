@@ -2059,12 +2059,21 @@ function getPlayerPayload(){
   };
 }
 
+let _flushInFlight = false;
+let _flushNeeded = false;
 async function flushSaveToServer(){
   if(!currentUser) return false;
+  // Write-gate: if a write is already in flight, queue one more flush
+  // when it finishes (always with the LATEST state — no stale overwrite)
+  if(_flushInFlight){ _flushNeeded = true; return false; }
   if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+  _flushInFlight = true;
   setSaveStatus('saving...');
   const ok=await fsSet('players', currentUser.uid, getPlayerPayload());
+  _flushInFlight = false;
   setSaveStatus(ok?'saved '+new Date().toLocaleTimeString():'save failed');
+  // If anything changed while we were saving, do one final flush now
+  if(_flushNeeded){ _flushNeeded=false; await flushSaveToServer(); }
   return ok;
 }
 
@@ -3098,8 +3107,8 @@ function buyUpgrade(u, type) {
   
   state.seeds -= cost;
   state.upgrades[u.id] = lvl + 1;
-  saveSeedsNow(); // immediate save to prevent rollback
-  saveToServer();
+  // Single immediate save — avoids racing a debounced write against this one
+  saveSeedsNow();
   updateUI();
   renderUpgrades();
   
