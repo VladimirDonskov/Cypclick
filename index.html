@@ -1337,6 +1337,7 @@ function shareRefLink() {
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
+const IMAGE_VERSION = 'photos-v20';
 const IMAGES = {
   img1: '/chicks/img1.jpg',
   img2: '/chicks/img2.jpg',
@@ -1446,6 +1447,11 @@ IMAGES.img98 = '/chicks/img98.jpg';
 IMAGES.img99 = '/chicks/img99.jpg';
 IMAGES.img100 = '/chicks/img100.jpg';
 IMAGES.img101 = '/chicks/img101.jpg';
+
+Object.keys(IMAGES).forEach((key) => {
+  const glue = IMAGES[key].includes('?') ? '&' : '?';
+  IMAGES[key] = `${IMAGES[key]}${glue}v=${IMAGE_VERSION}`;
+});
 
 function chickFallbackSrc(src) {
   return String(src || '').replace(/\.webp(\?.*)?$/, '.jpg$1');

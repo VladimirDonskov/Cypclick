@@ -1,7 +1,7 @@
 const TELEGRAM_API = "https://api.telegram.org";
 const REQUIRED_CHANNEL = "@CipochkaDev";
 const REQUIRED_CHANNEL_URL = "https://t.me/CipochkaDev";
-const APP_VERSION = "jpg-v19";
+const APP_VERSION = "photos-v20";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
