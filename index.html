@@ -1850,10 +1850,10 @@ async function doLogout(){
 async function loadUserAndStart(uid, opts = {}){
   const isNewPlayer = !!opts.isNewPlayer;
   const refUid = opts.refUid || null;
-  // Firestore with short timeout so Telegram WebView does not sit on a black screen.
+  // Firestore with 8 second timeout
   const u = await Promise.race([
     fsGet('players', uid),
-    new Promise((resolve)=>setTimeout(()=>resolve(null), 1800))
+    new Promise((resolve)=>setTimeout(()=>resolve(null), 8000))
   ]);
   if(!u){ 
     // Try loading from localStorage as fallback
@@ -2678,10 +2678,7 @@ function showProfileMenu(){
 // ── Telegram Auto Login ─────────────────────────────────────────
 async function tgAutoLogin(tgUser) {
   currentTelegramUser = tgUser;
-  const authUser = await Promise.race([
-    ensureFirebaseSession(),
-    new Promise(resolve => setTimeout(() => resolve(null), 1800))
-  ]);
+  const authUser = await ensureFirebaseSession();
   const legacyUid = 'tg_' + tgUser.id;
   const uid = authUser?.uid || legacyUid;
   const username = tgUser.username || tgUser.first_name || 'Игрок' + tgUser.id;
@@ -2694,7 +2691,7 @@ async function tgAutoLogin(tgUser) {
   // Check if player exists in Firestore
   let u = await Promise.race([
     fsGet('players', uid),
-    new Promise(r => setTimeout(() => r(null), 1800))
+    new Promise(r => setTimeout(() => r(null), 5000))
   ]);
 
   // Older builds used players/tg_<telegram_id>. If rules allow reading it,
@@ -2702,7 +2699,7 @@ async function tgAutoLogin(tgUser) {
   if (!u && uid !== legacyUid) {
     const legacy = await Promise.race([
       fsGet('players', legacyUid),
-      new Promise(r => setTimeout(() => r(null), 900))
+      new Promise(r => setTimeout(() => r(null), 3000))
     ]);
     if (legacy) {
       u = { ...legacy, uid, legacy_uid: legacyUid, tg_id: tgUser.id };
@@ -2715,7 +2712,7 @@ async function tgAutoLogin(tgUser) {
   if (!u) {
     const starterBonus = refUid && refUid !== uid ? 5000 : 0;
     // Create new player
-    fsSet('players', uid, {
+    await fsSet('players', uid, {
       uid, username,
       seeds: starterBonus, seeds_total: starterBonus, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
@@ -2728,23 +2725,21 @@ async function tgAutoLogin(tgUser) {
     
     // Give bonus to referrer
     if (refUid && refUid !== uid) {
-      setTimeout(async () => {
-        try {
-          const referrer = await fsGet('players', refUid);
-          if (referrer) {
-            const newSeeds = (referrer.seeds||0) + 5000;
-            const newTotal = (referrer.seeds_total||0) + 5000;
-            const newCount = (referrer.referral_count||0) + 1;
-            await fsSet('players', refUid, {
-              seeds: newSeeds,
-              seeds_total: newTotal,
-              referral_count: newCount
-            });
-            // Notify referrer via bot
-            await notifyReferrer(refUid, username);
-          }
-        } catch(e) { console.warn('ref bonus err', e); }
-      }, 100);
+      try {
+        const referrer = await fsGet('players', refUid);
+        if (referrer) {
+          const newSeeds = (referrer.seeds||0) + 5000;
+          const newTotal = (referrer.seeds_total||0) + 5000;
+          const newCount = (referrer.referral_count||0) + 1;
+          await fsSet('players', refUid, {
+            seeds: newSeeds,
+            seeds_total: newTotal,
+            referral_count: newCount
+          });
+          // Notify referrer via bot
+          await notifyReferrer(refUid, username);
+        }
+      } catch(e) { console.warn('ref bonus err', e); }
     }
   }
   
@@ -2792,13 +2787,6 @@ async function tgAutoLogin(tgUser) {
 }
 
 async function init(){
-  // Telegram launch should not wait for a stale Firebase Auth restore first.
-  const tgUser = getTgUser();
-  if (tgUser) {
-    await tgAutoLogin(tgUser);
-    return;
-  }
-
   const savedUid = localStorage.getItem('cypclick_fb_uid');
   if(savedUid){
     try {
@@ -2807,7 +2795,7 @@ async function init(){
         new Promise((resolve)=>{
           const unsub = _auth.onAuthStateChanged(u=>{ unsub(); resolve(u); });
         }),
-        new Promise((resolve)=>setTimeout(()=>resolve(null), 1800))
+        new Promise((resolve)=>setTimeout(()=>resolve(null), 5000))
       ]);
       if(user && user.uid === savedUid){
         await loadUserAndStart(user.uid);
@@ -2815,6 +2803,12 @@ async function init(){
       }
     } catch(e){ console.warn('auto-login err', e); }
     localStorage.removeItem('cypclick_fb_uid');
+  }
+  // Try Telegram auto-login
+  const tgUser = getTgUser();
+  if (tgUser) {
+    await tgAutoLogin(tgUser);
+    return;
   }
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('auth-page').style.display='block';

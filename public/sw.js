@@ -1,5 +1,5 @@
-const CACHE_NAME = 'cypclick-v17'; // bumped version - clears old cache for all users
-const STATIC_ASSETS = ['/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'cypclick-v16'; // bumped version - clears old cache for all users
+const STATIC_ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
   self.skipWaiting(); // activate immediately
@@ -21,7 +21,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  if (event.request.mode === 'navigate' || event.request.url.endsWith('/index.html')) return;
   if (event.request.url.includes('firestore') ||
       event.request.url.includes('firebase') ||
       event.request.url.includes('googleapis') ||
