@@ -3324,18 +3324,7 @@ function spawnBgParticle() {
 }
 setInterval(spawnBgParticle, 800);
 
-// Trigger daily reward check after app loads
-const _origShowApp = typeof showApp === 'function' ? showApp : null;
-document.addEventListener('appReady', () => setTimeout(checkDailyReward, 1200));
-
-// Patch showApp to fire appReady event
-if (typeof showApp === 'function') {
-  const __sa = showApp;
-  showApp = function(...a) {
-    __sa(...a);
-    setTimeout(() => document.dispatchEvent(new Event('appReady')), 400);
-  };
-}
+// Daily rewards are disabled until they are moved to a server-verified claim button.
 
 </script>
 
