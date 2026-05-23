@@ -1800,7 +1800,7 @@ async function doRegister(){
       seeds: 0, seeds_total: 0, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
       battles_won: 0, pvp_wins: 0, upgrades: {}, selected_chick_id: null,
-      last_daily_date: '', daily_streak: 0,
+      last_daily_date: '', daily_streak: 0, lastDailyDate: '', dailyStreak: 0,
       created_at: new Date().toISOString()
     });
     await loadUserAndStart(uid);
@@ -1890,8 +1890,8 @@ async function loadUserAndStart(uid, opts = {}){
   state.pvpWins = u.pvp_wins||0;
   state.upgrades = u.upgrades||{};
   state.selectedChickId = u.selected_chick_id||null;
-  state.lastDailyDate = u.last_daily_date||'';
-  state.dailyStreak = u.daily_streak||0;
+  state.lastDailyDate = u.last_daily_date||u.lastDailyDate||'';
+  state.dailyStreak = u.daily_streak||u.dailyStreak||0;
 
   // Merge localStorage backup
   // IMPORTANT: Firestore is source of truth for seeds/spent resources
@@ -2023,6 +2023,7 @@ function getPlayerPayload(){
     battles_won: (state.completedLevels||[]).length, pvp_wins: state.pvpWins||0,
     upgrades: state.upgrades||{}, selected_chick_id: state.selectedChickId||null,
     last_daily_date: state.lastDailyDate||'', daily_streak: state.dailyStreak||0,
+    lastDailyDate: state.lastDailyDate||'', dailyStreak: state.dailyStreak||0,
     updated_at: new Date().toISOString()
   };
 }
@@ -2714,7 +2715,7 @@ async function tgAutoLogin(tgUser) {
       seeds: starterBonus, seeds_total: starterBonus, collected: [], completed_levels: [],
       eggs_bought_basic: 0, eggs_bought_golden: 0, eggs_bought_legendary: 0,
       battles_won: 0, pvp_wins: 0, upgrades: {}, selected_chick_id: null,
-      last_daily_date: '', daily_streak: 0,
+      last_daily_date: '', daily_streak: 0, lastDailyDate: '', dailyStreak: 0,
       tg_id: tgUser.id, legacy_uid: legacyUid, referred_by: refUid||null,
       referral_count: 0,
       created_at: new Date().toISOString()
@@ -2750,7 +2751,7 @@ async function tgAutoLogin(tgUser) {
     state.eggsBasic = u.eggs_bought_basic||0; state.eggsGolden = u.eggs_bought_golden||0;
     state.eggsLegendary = u.eggs_bought_legendary||0; state.pvpWins = u.pvp_wins||0;
     state.upgrades = u.upgrades||{}; state.selectedChickId = u.selected_chick_id||null;
-    state.lastDailyDate = u.last_daily_date||''; state.dailyStreak = u.daily_streak||0;
+    state.lastDailyDate = u.last_daily_date||u.lastDailyDate||''; state.dailyStreak = u.daily_streak||u.dailyStreak||0;
   } else {
     state.seeds = refUid && refUid !== uid ? 5000 : 0;
     state.allTimeSeeds = state.seeds;
@@ -2770,6 +2771,12 @@ async function tgAutoLogin(tgUser) {
   try {
     const lsUpg = localStorage.getItem('cypclick_upg_'+uid);
     if(lsUpg){ const p=JSON.parse(lsUpg); Object.keys(p).forEach(k=>{ state.upgrades[k]=Math.max(p[k]||0,state.upgrades[k]||0); }); }
+    const lsRaw = localStorage.getItem('cypclick_state_'+uid);
+    if(lsRaw){
+      const ls = JSON.parse(lsRaw);
+      if(!state.lastDailyDate&&ls.lastDailyDate) state.lastDailyDate = ls.lastDailyDate;
+      if(!state.dailyStreak&&ls.dailyStreak) state.dailyStreak = ls.dailyStreak;
+    }
   } catch(e){}
   
   showApp();
@@ -3196,13 +3203,25 @@ function getDailyKey(offsetDays = 0) {
   return `${y}-${m}-${day}`;
 }
 
-function checkDailyReward() {
+function getDailyClaimStorageKey(dayKey) {
+  const uid = currentUser?.uid || localStorage.getItem('cypclick_fb_uid') || 'guest';
+  return 'cypclick_daily_claim_' + uid + '_' + dayKey;
+}
+
+async function checkDailyReward() {
   if (!state || typeof state !== 'object') return;
   const today = getDailyKey();
   const last = state.lastDailyDate || '';
   const streak = state.dailyStreak || 0;
+  const claimKey = getDailyClaimStorageKey(today);
 
   if (last === today) return; // Already claimed today
+  if (localStorage.getItem(claimKey) === '1') {
+    state.lastDailyDate = today;
+    if (!state.dailyStreak) state.dailyStreak = Math.max(streak, 1);
+    saveToServer();
+    return;
+  }
 
   const yesterday = getDailyKey(-1);
   const newStreak = (last === yesterday) ? Math.min(streak + 1, 7) : 1;
@@ -3213,9 +3232,11 @@ function checkDailyReward() {
   state.dailyStreak = newStreak;
   state.seeds = (state.seeds || 0) + reward;
   state.allTimeSeeds = (state.allTimeSeeds || 0) + reward;
+  localStorage.setItem(claimKey, '1');
 
   showDailyRewardModal(newStreak, reward);
   saveToServer();
+  await flushSaveToServer();
   updateUI();
 }
 
