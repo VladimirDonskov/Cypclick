@@ -1359,7 +1359,7 @@ function shareRefLink() {
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-const IMAGE_VERSION = 'photos-v20';
+const IMAGE_VERSION = 'photos-v21';
 const IMAGES = {
   img1: '/chicks/img1.jpg',
   img2: '/chicks/img2.jpg',
@@ -1469,6 +1469,9 @@ IMAGES.img98 = '/chicks/img98.jpg';
 IMAGES.img99 = '/chicks/img99.jpg';
 IMAGES.img100 = '/chicks/img100.jpg';
 IMAGES.img101 = '/chicks/img101.jpg';
+IMAGES.img102 = '/chicks/img102.jpg';
+IMAGES.img103 = '/chicks/img103.jpg';
+IMAGES.img104 = '/chicks/img104.jpg';
 
 Object.keys(IMAGES).forEach((key) => {
   const glue = IMAGES[key].includes('?') ? '&' : '?';
@@ -1523,6 +1526,9 @@ const CHICK_STATS={
   94:{hp:240,atk:42},95:{hp:130,atk:22},96:{hp:400,atk:68},97:{hp:215,atk:38},
   98:{hp:600,atk:100},
   99:{hp:340,atk:62},
+  102:{hp:260,atk:46},
+  103:{hp:420,atk:74},
+  104:{hp:620,atk:105},
 };
 
 const CHICK_ABILITIES={
@@ -1590,6 +1596,9 @@ const CHICK_ABILITIES={
   91:{name:"Совещание окончено",icon:"💼",chance:0.25,type:"execute",hpThr:0.3,desc:"Уволен! Казнь врага при HP < 30%"},
   93:{name:"Гравитационный захват",icon:"🌍",chance:0.30,type:"aoe",pct:0.6,desc:"Планета давит всех гравитацией на 60%"},
   99:{name:"Голос Мику",icon:"🎤",chance:0.25,type:"aoe",pct:0.45,desc:"Ультразвуковое пение оглушает всех на 45%"},
+  102:{name:"Железный писк",icon:"🤖",chance:0.25,type:"shield",val:70,desc:"Аниматроник включает броню: щит +70 HP"},
+  103:{name:"Пятница 13-е",icon:"🔪",chance:0.30,type:"execute",hpThr:0.3,desc:"Джейсон добивает врага при HP < 30%"},
+  104:{name:"Сбой реальности",icon:"📺",chance:0.35,type:"aoe",pct:0.7,desc:"Глитч ломает арену и бьет всех врагов на 70%"},
 };
 
 function getChickHp(ch){const b=CHICK_STATS[ch.id];return b?b.hp:RHP[ch.rarity];}
@@ -1693,6 +1702,9 @@ const CHICKS=[
   {id:98,name:"Цыпа-Зевс",rarity:"ultra_legendary",desc:"Какой же он величественный.",imgKey:"img99"},
   {id:99,name:"Цыпа-Мику",rarity:"legendary",desc:"Виртуальная поп-звезда с голубыми косичками. Кукарекает в тональности ре-минор.",imgKey:"img100"},
   {id:100,name:"Цыпо-Яблоко",rarity:"common",desc:"Тело как яблоко, лапки как у цыплёнка. Стив Джобс одобряет.",imgKey:"img101"},
+  {id:102,name:"Аниматроник Цыпа",rarity:"epic",desc:"Розовый механический цып с мягким сердцем и железной броней.",imgKey:"img102"},
+  {id:103,name:"Джейсон Цыпхиз",rarity:"legendary",desc:"Молчаливый охотник в маске. Пятница теперь принадлежит цыпам.",imgKey:"img103"},
+  {id:104,name:"Глитчцыпа",rarity:"ultra_legendary",desc:"Сломанная реальность, кислотные пиксели и цыпа, которая вышла за пределы экрана.",imgKey:"img104"},
 ];
 
 const BATTLE_LEVELS=[
@@ -2030,7 +2042,7 @@ let state={seeds:0,allTimeSeeds:0,collected:[],completedLevels:[],eggsBasic:0,eg
 function getEggCost(type){
   const base=EGG_BASE[type];
   const bought=type==='basic'?state.eggsBasic:type==='golden'?state.eggsGolden:state.eggsLegendary;
-  return Math.round(base * Math.pow(1.20, bought));
+  return Math.round(base * Math.pow(1.40, bought));
 }
 
 function updateUI(){

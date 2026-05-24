@@ -1,5 +1,5 @@
 const TELEGRAM_API = "https://api.telegram.org";
-const APP_VERSION = "photos-v20";
+const APP_VERSION = "chicks-v21";
 
 function json(res, status, data) {
   res.statusCode = status;
